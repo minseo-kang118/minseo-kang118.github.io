@@ -68,7 +68,18 @@
     line-height:1.6;font-weight:400;
     -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
   }
+::selection {
+  background-color: #F58220; /* Highlight background */
+  color: #043B72;            /* Selected text color */
+  text-shadow: 1px 1px 0px #043B72; 
+}
 
+/* Gecko based browsers (Firefox) */
+::-moz-selection {
+  background-color: #F58220;
+  color: #043B72;
+  text-shadow: 1px 1px 0px #043B72; 
+}
   /* full-screen animated ASCII background */
   #bg{position:fixed;inset:0;width:100vw;height:100vh;z-index:-2;display:block;background:var(--bg);pointer-events:none}
 
@@ -172,6 +183,17 @@
 
   var W,H,cols,rows,cellW,cellH,fontSize;
   var fldBase = 22, fldSpan = 46, fldSat = 70;
+  // cache of 'hsl(...)' strings so the hot loop allocates nothing
+  var colCache = Object.create(null), colCacheN = 0;
+  function colStr(key, h, sa, l){
+    var c = colCache[key];
+    if(c === undefined){
+      c = 'hsl(' + h + ',' + sa + '%,' + l + '%)';
+      if(colCacheN > 6000){ colCache = Object.create(null); colCacheN = 0; }
+      colCache[key] = c; colCacheN++;
+    }
+    return c;
+  }
   function resize(){
     W = canvas.width  = Math.floor(window.innerWidth);
     H = canvas.height = Math.floor(window.innerHeight);
@@ -179,16 +201,22 @@
     canvas.style.height = window.innerHeight + 'px';
     var small = window.innerWidth < 600;
     fontSize = small ? 8 : 10;
+    // cap total cells on large monitors: cost grows with screen AREA
+    var TARGET = small ? 9000 : 24000;
+    var need = Math.sqrt((W*H) / (TARGET*0.648));
+    if(need > fontSize) fontSize = Math.min(16, Math.round(need));
     // small screens are dimmer in daylight, so lift the field's brightness there
     fldBase = small ? 34 : 22;      // darkest value
     fldSpan = small ? 52 : 46;      // range above it
     fldSat  = small ? 82 : 70;      // colour intensity
-    cellW = fontSize * 0.60;
+    ctx.font = fontSize + 'px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+    ctx.textBaseline = 'top';
+    // use the font's REAL advance width so a whole run of glyphs can be drawn
+    // in one fillText and still land exactly on the grid
+    cellW = ctx.measureText('M').width || fontSize*0.60;
     cellH = fontSize * 1.08;
     cols = Math.ceil(W / cellW) + 1;
     rows = Math.ceil(H / cellH) + 1;
-    ctx.font = fontSize + 'px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
-    ctx.textBaseline = 'top';
   }
   resize();
 
@@ -220,6 +248,7 @@
     if(dt < 0 || dt > 1) dt = 0;
     kLastT = t;
     kNow = t;
+    if(kst.length > kois.length) kst.length = kois.length;
     for(var k=0;k<kois.length;k++){
       var o = kois[k];
       if(o.x < 0){ o.x = krnd(0.15,0.85)*W; o.y = krnd(0.15,0.85)*H; }
@@ -266,8 +295,11 @@
       var sn = o.sp / 88; if(sn > 1) sn = 1;
       o.ph += dt * (1.1 + 6.2*sn) * o.sw;
       var R = Ls*2.1;
-      kst[k] = {cx:o.x, cy:o.y, ca:Math.cos(ang), sa:Math.sin(ang), L:Ls, R2:R*R,
-                swim:o.ph, bend:bend, dep:dep, o:o};
+      // reuse the state object instead of allocating a new one every frame
+      var q = kst[k];
+      if(!q) q = kst[k] = {cx:0,cy:0,ca:0,sa:0,L:0,R2:0,swim:0,bend:0,dep:0,o:null};
+      q.cx=o.x; q.cy=o.y; q.ca=Math.cos(ang); q.sa=Math.sin(ang);
+      q.L=Ls; q.R2=R*R; q.swim=o.ph; q.bend=bend; q.dep=dep; q.o=o;
     }
   }
   // returns 0 outside, 1 body, 0.55 fin  (u = along body, yy = lateral)
@@ -344,25 +376,27 @@
     koiState(t);
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, W, H);
-    var lastColor = '';
+    var nk = kst.length;
     for(var j=0;j<rows;j++){
       var y = j * cellH;
+      // one run = consecutive cells sharing a colour, drawn with a single fillText
+      var runKey = -1, runStr = '', runX = 0, runCol = '';
+      var sinJ1 = 1.4*Math.sin(j*0.040 + t*0.35) + 0.55*Math.sin(j*0.105 - t*0.62);
+      var wyBase = j*0.068;
       for(var i=0;i<cols;i++){
-        // organic flow via domain warping -> natural, non-grid motion
-        var wx = i*0.060 + 1.4*Math.sin(j*0.040 + t*0.35) + 0.55*Math.sin(j*0.105 - t*0.62);
-        var wy = j*0.068 + 1.4*Math.sin(i*0.048 - t*0.30) + 0.55*Math.sin(i*0.125 + t*0.52);
+        var wx = i*0.060 + sinJ1;
+        var wy = wyBase + 1.4*Math.sin(i*0.048 - t*0.30) + 0.55*Math.sin(i*0.125 + t*0.52);
         var f = Math.sin(wx + t*0.50)
               + Math.sin(wy - t*0.40)
               + Math.sin((wx + wy)*0.6 + t*0.22);
         var b = 0.5 + f/6; if(b<0)b=0; else if(b>1)b=1;   // brightness
-        // hue from a slower warped field so colour drifts in broad bands
         var cf = Math.sin(wx*0.5 - t*0.18) + Math.sin(wy*0.5 + t*0.15);
         var hue = (((cf*90 + t*18) % 360) + 360) % 360;
-        hue = (hue / 3 | 0) * 3;
-        var light = (fldBase + b*fldSpan) | 0;            // never black
+        hue = (hue / 6 | 0) * 6;                          // quantised -> longer runs
+        var light = ((fldBase + b*fldSpan) / 4 | 0) * 4;   // quantised -> longer runs
         // koi: same field letters, different colour where a fish's body is
         var px = i*cellW, hit = 0, ko = null, ks = null;
-        for(var k=0;k<kst.length;k++){
+        for(var k=0;k<nk;k++){
           var st = kst[k];
           var ddx = px - st.cx, ddy = y - st.cy;
           if(ddx*ddx + ddy*ddy > st.R2) continue;
@@ -370,28 +404,35 @@
           if(h){ hit = h; ks = st; ko = st.o; break; }
           if(koiHit(st, ddx, ddy, 0.055)){ hit = 0.2; ks = st; ko = st.o; break; }  // outline
         }
-        var color;
+        var kh, ksa, kl, chr;
         if(hit === 0.2){
-          color = 'hsl(0,0%,7%)';                                 // dark halo
+          kh = 0; ksa = 0; kl = 7;
+          chr = ramp.charAt((b*RL + 0.5) | 0);
         } else if(hit){
           var patch = (hit === 1) && koiPatch(ks, px - ks.cx, y - ks.cy);
-          var kh = patch ? ko.phue : ko.hue;
-          var ksa = patch ? ko.psat : ko.sat;
-          var kl = (patch ? ko.plit : ko.lit) + (b - 0.5)*8 + ks.dep*7;   // deeper = dimmer
-          if(hit < 1) kl -= 8;                                     // fins a touch deeper
+          kh  = patch ? ko.phue : ko.hue;
+          ksa = patch ? ko.psat : ko.sat;
+          kl  = (patch ? ko.plit : ko.lit) + (b - 0.5)*8 + ks.dep*7;   // deeper = dimmer
+          if(hit < 1) kl -= 8;                                          // fins a touch deeper
           if(kl < 10) kl = 10; else if(kl > 94) kl = 94;
-          color = 'hsl(' + kh + ',' + ksa + '%,' + (kl|0) + '%)';
+          kl = (kl / 3 | 0) * 3;
+          chr = (hit === 1) ? koiBody.charAt((b*KBL + 0.5) | 0)
+                            : koiFinR.charAt((b*KFL + 0.5) | 0);
         } else {
-          color = 'hsl(' + hue + ',' + fldSat + '%,' + light + '%)';
+          kh = hue; ksa = fldSat; kl = light;
+          chr = ramp.charAt((b*RL + 0.5) | 0);
         }
-        if(color !== lastColor){ ctx.fillStyle = color; lastColor = color; }
-        // character: koi parts use their own fixed ramps, field uses its own
-        var chr;
-        if(hit === 1)        chr = koiBody.charAt((b*KBL + 0.5) | 0);
-        else if(hit === 0.55) chr = koiFinR.charAt((b*KFL + 0.5) | 0);
-        else                  chr = ramp.charAt((b*RL + 0.5) | 0);
-        ctx.fillText(chr, px, y);
+        // pack the colour into one integer: no string built unless it changed
+        var key = ((kh*101) + ksa)*101 + kl;
+        if(key === runKey){
+          runStr += chr;
+        } else {
+          if(runStr){ ctx.fillStyle = runCol; ctx.fillText(runStr, runX, y); }
+          runKey = key; runCol = colStr(key, kh, ksa, kl);
+          runStr = chr; runX = px;
+        }
       }
+      if(runStr){ ctx.fillStyle = runCol; ctx.fillText(runStr, runX, y); }
     }
   }
 
