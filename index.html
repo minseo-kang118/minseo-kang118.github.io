@@ -326,7 +326,7 @@
     {hue:200, sat:55, lit:62, phue:215, psat:60, plit:36},   // blue-gray / slate
     {hue:52,  sat:70, lit:72, phue:20,  psat:80, plit:50}    // butter / amber
   ];
-  var MAX_KOI = 14;
+  var MAX_KOI = 50;
   function addKoi(fx, fy){
     if(kois.length >= MAX_KOI) kois.shift();      // oldest swims off
     var c = koiPalette[(Math.random()*koiPalette.length)|0];
