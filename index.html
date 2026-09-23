@@ -110,27 +110,23 @@
   ul.bio{list-style:none;margin:0;padding:0}
   ul.bio li{position:relative;padding-left:1.3rem;margin:0 0 .3rem}
   ul.bio li::before{content:"–";position:absolute;left:0;color:var(--muted)}
-  .sm{display:none}
-
-  /* phones: tighter box and shorter wording so each bullet sits on one line */
+  /* phones: trim the padding so the text gets the width it needs */
   @media (max-width:560px){
-    body{font-size:13px;line-height:1.5}
-    .lg{display:none}
-    .sm{display:inline}
-    .wrap{padding:1.25rem .55rem 2rem;max-width:none}
-    main{padding:1rem .8rem}
+    body{font-size:13px;line-height:1.52}
+    .wrap{padding:1.1rem .4rem 2rem;max-width:none}
+    main{padding:.95rem .5rem}
     main::before{inset:-2px}
-    h1{font-size:1.4rem}
-    .top{gap:.3rem .8rem}
-    nav.links{gap:.7rem;font-size:.85rem}
-    .tagline{font-size:.85rem;margin:.35rem 0 .85rem}
-    ul.bio li{padding-left:.8rem;margin:0 0 .4rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .tagline{white-space:nowrap}
+    h1{font-size:1.45rem}
+    .top{gap:.3rem .9rem}
+    nav.links{gap:.75rem;font-size:.86rem}
+    .tagline{font-size:.86rem;margin:.35rem 0 .9rem}
+    ul.bio li{padding-left:.7rem;margin:0 0 .42rem}
   }
-  /* very narrow phones: let it wrap again rather than clip */
-  @media (max-width:359px){
+  @media (max-width:360px){
     body{font-size:12px}
-    ul.bio li{white-space:normal}
+    .wrap{padding:1rem .3rem 1.6rem}
+    main{padding:.85rem .4rem}
+    ul.bio li{padding-left:.62rem}
   }
 </style>
 </head>
@@ -150,9 +146,9 @@
   <p class="tagline">Currently in Singapore. Previously in <span id="city" class="city">Seoul</span></p>
 
   <ul class="bio">
-    <li>PhD Student in <a href="https://cde.nus.edu.sg/isem/" target="_blank" rel="noopener noreferrer">ISEM</a> at <span class="lg">National University of Singapore</span><span class="sm">NUS</span></li>
-    <li>Advised by <a href="https://cde.nus.edu.sg/isem/staff/ye-zhisheng/" target="_blank" rel="noopener noreferrer"><span class="lg">Professor</span><span class="sm">Prof.</span> Ye Zhisheng</a></li>
-    <li><span class="lg">Working on causal</span><span class="sm">Causal</span> decision making in operations research</li>
+    <li>PhD Student in <a href="https://cde.nus.edu.sg/isem/" target="_blank" rel="noopener noreferrer">ISEM</a> at National University of Singapore</li>
+    <li>Advised by <a href="https://cde.nus.edu.sg/isem/staff/ye-zhisheng/" target="_blank" rel="noopener noreferrer">Professor Ye Zhisheng</a></li>
+    <li>Working on causal decision making in operations research</li>
     <li>Studied at Columbia, Georgetown, Gordonstoun</li>
     <!-- <li>Brief industry stunts at Mirae, KIS, HSBC</li> -->
   </ul>
