@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Minseo Kang</title>
-<meta name="description" content="Minseo Kang — PhD student in ISEM at the National University of Singapore, working on causal decision making in operations research.">
+<meta name="description" content="Go Fish">
 <meta name="theme-color" content="#0a0a0a">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://minseo-kang118.github.io/">
@@ -14,11 +14,11 @@
 <meta property="og:site_name" content="Minseo Kang">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Minseo Kang">
-<meta name="twitter:description" content="PhD student in ISEM at the National University of Singapore, working on causal decision making in operations research.">
+<meta name="twitter:description" content="Go Fish">
 <meta name="twitter:image" content="https://minseo-kang118.github.io/og.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 20'%3E%3Crect width='34' height='20' fill='%230a0a0a'/%3E%3Cg stroke='%230a0a0a' stroke-width='1.4' stroke-linejoin='round'%3E%3Cpath d='M9.5 10 L2.5 4.5 L4.6 10 L2.5 15.5 Z' fill='%23ff7a1e'/%3E%3Cpath d='M29.5 10 C26 4 19 2.8 13.5 4.6 C10.6 5.6 9.2 7.6 9.2 10 C9.2 12.4 10.6 14.4 13.5 15.4 C19 17.2 26 16 29.5 10 Z' fill='%23ff9433'/%3E%3C/g%3E%3Ccircle cx='25.4' cy='8.6' r='1.5' fill='%230a0a0a'/%3E%3C/svg%3E">
 <meta property="og:title" content="Minseo Kang">
-<meta property="og:description" content="PhD student in ISEM at the National University of Singapore, working on causal decision making in operations research.">
+<meta property="og:description" content="Go Fish">
 
 <style>
   /* self-hosted Newsreader (SIL Open Font License) — no third-party requests */
@@ -171,12 +171,18 @@
   var seed = 0;   // random seed for the letters; reseeds every second
 
   var W,H,cols,rows,cellW,cellH,fontSize;
+  var fldBase = 22, fldSpan = 46, fldSat = 70;
   function resize(){
     W = canvas.width  = Math.floor(window.innerWidth);
     H = canvas.height = Math.floor(window.innerHeight);
     canvas.style.width  = window.innerWidth + 'px';
     canvas.style.height = window.innerHeight + 'px';
-    fontSize = window.innerWidth < 600 ? 8 : 10;
+    var small = window.innerWidth < 600;
+    fontSize = small ? 8 : 10;
+    // small screens are dimmer in daylight, so lift the field's brightness there
+    fldBase = small ? 34 : 22;      // darkest value
+    fldSpan = small ? 52 : 46;      // range above it
+    fldSat  = small ? 82 : 70;      // colour intensity
     cellW = fontSize * 0.60;
     cellH = fontSize * 1.08;
     cols = Math.ceil(W / cellW) + 1;
@@ -353,7 +359,7 @@
         var cf = Math.sin(wx*0.5 - t*0.18) + Math.sin(wy*0.5 + t*0.15);
         var hue = (((cf*90 + t*18) % 360) + 360) % 360;
         hue = (hue / 3 | 0) * 3;
-        var light = (22 + b*46) | 0;                      // 22..68 -> never black
+        var light = (fldBase + b*fldSpan) | 0;            // never black
         // koi: same field letters, different colour where a fish's body is
         var px = i*cellW, hit = 0, ko = null, ks = null;
         for(var k=0;k<kst.length;k++){
@@ -376,7 +382,7 @@
           if(kl < 10) kl = 10; else if(kl > 94) kl = 94;
           color = 'hsl(' + kh + ',' + ksa + '%,' + (kl|0) + '%)';
         } else {
-          color = 'hsl(' + hue + ',70%,' + light + '%)';
+          color = 'hsl(' + hue + ',' + fldSat + '%,' + light + '%)';
         }
         if(color !== lastColor){ ctx.fillStyle = color; lastColor = color; }
         // character: koi parts use their own fixed ramps, field uses its own
