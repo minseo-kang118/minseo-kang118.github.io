@@ -398,7 +398,7 @@
       if(sn > 1) sn = 1 + (sn - 1)*0.85;
       if(sn > 5) sn = 5;
       var inc = dt * (1.1 + 6.2*sn) * o.sw;
-      if(inc > 0.85) inc = 0.85;   // keep >7 frames per tail cycle so it never aliases
+      // if(inc > 0.85) inc = 0.85;   // keep >7 frames per tail cycle so it never aliases
       o.ph += inc;
 
       // --- stamp the wake behind it ---
