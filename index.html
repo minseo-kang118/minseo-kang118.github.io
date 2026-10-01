@@ -110,6 +110,20 @@
   ul.bio{list-style:none;margin:0;padding:0}
   ul.bio li{position:relative;padding-left:1.3rem;margin:0 0 .3rem}
   ul.bio li::before{content:"–";position:absolute;left:0;color:var(--muted)}
+  /* two views: home and publications, swapped with a fade */
+  .view[hidden]{display:none}
+  .view.leaving{animation:viewOut .20s ease both}
+  .view.entering{animation:viewIn .24s cubic-bezier(.2,.7,.2,1) both}
+  @keyframes viewOut{from{opacity:1;transform:none}to{opacity:0;transform:scale(.97)}}
+  @keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){
+    .view.leaving,.view.entering{animation:none}
+  }
+  ul.publist{list-style:none;margin:.9rem 0 0;padding:0}
+  ul.publist li{margin:0 0 .8rem}
+  .ptitle{display:block}
+  .pmeta{display:block;color:var(--muted);font-size:.88em;font-style:italic}
+
   /* phones: trim the padding so the text gets the width it needs */
   @media (max-width:560px){
     body{font-size:13px;line-height:1.52}
@@ -121,6 +135,7 @@
     nav.links{gap:.75rem;font-size:.86rem}
     .tagline{font-size:.86rem;margin:.35rem 0 .9rem}
     ul.bio li{padding-left:.7rem;margin:0 0 .42rem}
+    ul.publist li{margin:0 0 .6rem}
   }
   @media (max-width:360px){
     body{font-size:12px}
@@ -135,23 +150,52 @@
 
 <div class="wrap">
 <main>
-  <header class="top">
-    <h1>Minseo Kang</h1>
-    <nav class="links" aria-label="Elsewhere">
-      <a href="https://www.linkedin.com/in/minseo-kang-ek/"  target="_blank">LinkedIn</a>
-      <button id="mail" type="button" class="maillink">Email</button>
-    </nav>
-  </header>
+  <!-- home -->
+  <div id="home" class="view">
+    <header class="top">
+      <h1>Minseo Kang</h1>
+      <nav class="links" aria-label="Elsewhere">
+        <a href="https://www.linkedin.com/in/minseo-kang-ek/"  target="_blank">LinkedIn</a>
+        <button id="pubtoggle" type="button" class="maillink">Publications</button>
+        <button id="mail" type="button" class="maillink">Email</button>
+      </nav>
+    </header>
 
-  <p class="tagline">Currently in Singapore. Previously in <span id="city" class="city">Seoul</span></p>
+    <p class="tagline">Currently in Singapore. Previously in <span id="city" class="city">Seoul</span></p>
 
-  <ul class="bio">
-    <li>PhD Student in <a href="https://cde.nus.edu.sg/isem/" target="_blank" rel="noopener noreferrer">ISEM</a> at National University of Singapore</li>
-    <li>Advised by <a href="https://cde.nus.edu.sg/isem/staff/ye-zhisheng/" target="_blank" rel="noopener noreferrer">Professor Ye Zhisheng</a></li>
-    <li>Working on causal decision making in operations research</li>
-    <li>Studied at Columbia, Georgetown, Gordonstoun</li>
-    <!-- <li>Brief industry stunts at Mirae, KIS, HSBC</li> -->
-  </ul>
+    <ul class="bio">
+      <li>PhD Student in <a href="https://cde.nus.edu.sg/isem/" target="_blank" rel="noopener noreferrer">ISEM</a> at National University of Singapore</li>
+      <li>Advised by <a href="https://cde.nus.edu.sg/isem/staff/ye-zhisheng/" target="_blank" rel="noopener noreferrer">Professor Ye Zhisheng</a></li>
+      <li>Working on causal decision making in operations research</li>
+      <li>Studied at Columbia, Georgetown, Gordonstoun</li>
+      <!-- <li>Brief industry stunts at Mirae, KIS, HSBC</li> -->
+    </ul>
+  </div>
+
+  <!-- publications -->
+  <div id="pubpage" class="view" hidden>
+    <header class="top">
+      <h1>Publications</h1>
+      <nav class="links" aria-label="Elsewhere">
+        <button id="pubback" type="button" class="maillink">&larr; Back</button>
+      </nav>
+    </header>
+
+    <ul class="publist">
+      <li>
+        <span class="ptitle">Paper title goes here</span>
+        <span class="pmeta">with Coauthor &middot; working paper, 2026</span>
+      </li>
+      <li>
+        <span class="ptitle">Another paper title</span>
+        <span class="pmeta">under review, 2026</span>
+      </li>
+      <li>
+        <span class="ptitle">A third paper title</span>
+        <span class="pmeta">in preparation, 2026</span>
+      </li>
+    </ul>
+  </div>
 </main>
 </div>
 
@@ -160,15 +204,14 @@
   var canvas = document.getElementById('bg');
   var ctx = canvas.getContext('2d', {alpha:false});
   var ramp     = "<[{()}]>";        var RL   = ramp.length - 1;
-  var koiBody  = "oO08@%&#$";       var KBL  = koiBody.length - 1;   // near fish
-  var koiBodyF = ".:-=+coO0";       var KBFL = koiBodyF.length - 1;  // far fish (sparser)
+  var koiBody  = "oO08@%&#$";       var KBL  = koiBody.length - 1;
+  var koiBodyF = ".:-=+coO0";       var KBFL = koiBodyF.length - 1;
   var koiFinR  = "~^':;-+";         var KFL  = koiFinR.length - 1;
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   var W,H,cols,rows,cellW,cellH,fontSize;
   var fldBase = 22, fldSpan = 46, fldSat = 70;
 
-  // ---- colour strings cached behind an integer key: hot loop allocates nothing ----
   var colCache = Object.create(null), colCacheN = 0;
   function colStr(key, h, sa, l){
     var c = colCache[key];
@@ -179,39 +222,22 @@
     }
     return c;
   }
+  function krnd(a,b){ return a + Math.random()*(b-a); }
 
-  // ---- ripples from clicks: a decaying ring pushed into the field ----
-  var ripples = [];
-  function rippleTerm(i, j, t){
-    var sum = 0;
-    for(var r=0;r<ripples.length;r++){
-      var rp = ripples[r], age = t - rp.t0;
-      if(age < 0) continue;
-      var di = i - rp.i, dj = (j - rp.j)*0.55;      // cells are taller than wide
-      var d = Math.sqrt(di*di + dj*dj);
-      var front = age*26;                            // expanding wavefront
-      var off = d - front;
-      if(off > 18 || off < -34) continue;
-      sum += Math.sin(off*0.42) * Math.exp(-Math.abs(off)/13) * Math.exp(-age*0.55) * 0.55;
-    }
-    return sum;
-  }
-  function pruneRipples(t){
-    for(var r=ripples.length-1;r>=0;r--) if(t - ripples[r].t0 > 7) ripples.splice(r,1);
-  }
+  // ---- the warp: fish collapse to the middle, then pour back out ----
+  // the grey (or the colour) sweeps across the screen, left to right
+  var grayX = -1, grayTo = 0, grayBase = 0, grayEnd = 0, graySpeed = 0, graySweep = false;
 
-  // ---- the field. NOTE: draw() inlines this same maths with per-row precomputation;
-  //      if you change one, change both. ----
+  // ---- field (draw() inlines the same maths; keep them in step) ----
   function fieldB(i, j, t){
     var wx = i*0.060 + 1.4*Math.sin(j*0.040 + t*0.35) + 0.55*Math.sin(j*0.105 - t*0.62);
     var wy = j*0.068 + 1.4*Math.sin(i*0.048 - t*0.30) + 0.55*Math.sin(i*0.125 + t*0.52);
     var f = Math.sin(wx + t*0.50) + Math.sin(wy - t*0.40) + Math.sin((wx + wy)*0.6 + t*0.22);
     var b = 0.5 + f/6;
-    if(ripples.length) b += rippleTerm(i, j, t);
     return b < 0 ? 0 : (b > 1 ? 1 : b);
   }
 
-  // ---- wake: a low-res buffer the fish stamp into, decaying every frame ----
+  // ---- wake ----
   var wake = null, wCols = 0, wRows = 0;
   function wakeInit(){
     wCols = Math.ceil(cols/2) + 1; wRows = Math.ceil(rows/2) + 1;
@@ -225,7 +251,7 @@
     canvas.style.height = window.innerHeight + 'px';
     var small = window.innerWidth < 600;
     fontSize = small ? 8 : 10;
-    var TARGET = small ? 9000 : 24000;                 // cap cells: cost scales with AREA
+    var TARGET = small ? 9000 : 24000;
     var need = Math.sqrt((W*H) / (TARGET*0.648));
     if(need > fontSize) fontSize = Math.min(16, Math.round(need));
     fldBase = small ? 34 : 22;
@@ -233,7 +259,7 @@
     fldSat  = small ? 82 : 70;
     ctx.font = fontSize + 'px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
     ctx.textBaseline = 'top';
-    cellW = ctx.measureText('M').width || fontSize*0.60;   // real advance -> runs align
+    cellW = ctx.measureText('M').width || fontSize*0.60;
     cellH = fontSize * 1.08;
     cols = Math.ceil(W / cellW) + 1;
     rows = Math.ceil(H / cellH) + 1;
@@ -242,16 +268,17 @@
   resize();
 
   // ---- koi ----
-  function krnd(a,b){ return a + Math.random()*(b-a); }
+  var GOLD = {hue:45, sat:100, lit:80, phue:52, psat:100, plit:94};
+  var goldAll = false;
   function mkKoi(c, L){
     return {
       x:-1, y:-1,
       ang: krnd(0, 6.283), sp: krnd(34,78), tsp: krnd(34,78),
       turn: 0, tturn: krnd(-0.8,0.8), tmr: krnd(0.5,3.0),
-      dart: 0, dartOn:false, dartT:0, dtx:0, dty:0,   // cross-screen sprint
-      gold: false,
-      kFor: krnd(0.15, 1.0),      // how strongly it hunts bright patches
-      kCon: krnd(0.15, 1.0),      // how strongly it follows contours
+      dart: 0, dartOn:false, dartT:0, dtx:0, dty:0,
+      jump: 0, jumpOn:false, jumpT:0,
+      startle: 0, gold:false,
+      kFor: krnd(0.15, 1.0), kCon: krnd(0.15, 1.0), kSch: krnd(0.5, 1.2),
       L:L, sw:krnd(1.2,2.0), sd:krnd(0.17,0.35), pd:krnd(0,6.28), ph:0,
       hue:c.hue, sat:c.sat, lit:c.lit, phue:c.phue, psat:c.psat, plit:c.plit
     };
@@ -261,9 +288,9 @@
     mkKoi({hue:40, sat:10, lit:86, phue:355, psat:85, plit:56}, 48),
     mkKoi({hue:47, sat:88, lit:64, phue:30,  psat:30, plit:34}, 40)
   ];
-  var kLastT = null, kNow = 0, kst = [];
+  var kLastT = null, kNow = 0, kst = [], korder = [];
+  function byNear(a, bq){ return kst[bq].near - kst[a].near; }   // nearest first
 
-  // ---- idle: after a while with no input the school slows and gathers ----
   var lastInput = (typeof performance !== 'undefined' ? performance.now() : Date.now());
   var idle = 0;
   function poke(){ lastInput = (typeof performance !== 'undefined' ? performance.now() : Date.now()); }
@@ -272,103 +299,162 @@
   window.addEventListener('keydown', poke, {passive:true});
   window.addEventListener('scroll', poke, {passive:true});
 
-  var GREF = 0.028;   // p90 of |grad b| per cell — measured, not guessed
+  var GREF = 0.028;
   function koiState(t){
     var dt = (kLastT === null) ? 0 : (t - kLastT);
     if(dt < 0 || dt > 1) dt = 0;
     kLastT = t; kNow = t;
     if(kst.length > kois.length) kst.length = kois.length;
-    pruneRipples(t);
     var nowMs = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    var idleT = (nowMs - lastInput - 30000)/6000;        // starts after 30s, ramps over 6s
+    var idleT = (nowMs - lastInput - 30000)/6000;
     idle = idleT < 0 ? 0 : (idleT > 1 ? 1 : idleT);
+    if(graySweep){
+      grayX += dt*graySpeed;
+      if(grayX > grayEnd){ grayBase = grayTo; graySweep = false; }
+    }
 
-    // ~once every 10 seconds one fish bolts. t advances 0.02/frame at 25fps,
-    // so 1 real second is about 0.5 t-units and 10 seconds is about 5.
+    // a cross-screen sprint, roughly every 10s
     if(dt > 0){
-      var anyDart = false;
-      for(var d=0;d<kois.length;d++){ if(kois[d].dartOn){ anyDart = true; break; } }
-      if(!anyDart && Math.random() < dt/3){
+      var busy = false;
+      for(var d=0;d<kois.length;d++){ if(kois[d].dartOn || kois[d].jumpOn){ busy = true; break; } }
+      if(!busy && Math.random() < dt/3){
         var pick = kois[(Math.random()*kois.length)|0];
         if(pick.x >= 0){
           pick.dartOn = true; pick.dartT = 0;
-          // aim at the far side, so the sprint crosses the whole screen
           pick.dtx = (pick.x < W*0.5) ? W*krnd(0.72,0.85) : W*krnd(0.15,0.28);
           pick.dty = H*krnd(0.22, 0.78);
         }
       }
+      // and, more rarely, a jump
+      if(!busy && Math.random() < dt/22){
+        var jp = kois[(Math.random()*kois.length)|0];
+        if(jp.x >= 0 && !jp.dartOn){ jp.jumpOn = true; jp.jumpT = 0; }
+      }
     }
+
+    // is the rare gold one here? the others will want to follow it
+    var goldFish = null;
+    for(var g=0;g<kois.length;g++){ if(kois[g].gold && kois[g].x >= 0){ goldFish = kois[g]; break; } }
 
     for(var k=0;k<kois.length;k++){
       var o = kois[k];
       if(o.x < 0){ o.x = krnd(0.15,0.85)*W; o.y = krnd(0.15,0.85)*H; }
 
-      // --- read the field under the fish, and its slope ---
       var fi = o.x/cellW, fj = o.y/cellH;
       var bHere = fieldB(fi, fj, t);
       var gi = (fieldB(fi+1.5, fj, t) - fieldB(fi-1.5, fj, t)) / 3;
       var gj = (fieldB(fi, fj+1.5, t) - fieldB(fi, fj-1.5, t)) / 3;
-      // convert cell-space slope to pixel-space direction
       var gx = gi/cellW, gy = gj/cellH;
       var gm = Math.sqrt(gi*gi + gj*gj);
       var gs = gm/GREF; if(gs > 1) gs = 1;
 
-      // --- wander: the turn rate random-walks so the route never repeats ---
       o.tmr -= dt;
       if(o.tmr <= 0){ o.tturn = krnd(-1.35,1.35); o.tmr = krnd(0.6,3.2); }
       var ease = dt*1.8; if(ease > 1) ease = 1;
       o.turn += (o.tturn - o.turn)*ease;
 
-      // --- steer: blend wander with hill-climbing and contour-following ---
-      if(gm > 1e-6 && !o.dartOn){
-        var gAng = Math.atan2(gy, gx);                 // uphill, toward brighter
-        var cAng = gAng + 1.5708;                      // along the contour
-        if(Math.cos(cAng - o.ang) < 0) cAng -= 3.14159;  // pick the way it's already going
-        var vx = Math.cos(o.ang)*0.9
-               + Math.cos(gAng)*o.kFor*gs*0.85
-               + Math.cos(cAng)*o.kCon*gs*0.95;
-        var vy = Math.sin(o.ang)*0.9
-               + Math.sin(gAng)*o.kFor*gs*0.85
-               + Math.sin(cAng)*o.kCon*gs*0.95;
-        var want = Math.atan2(vy, vx);
-        var d = want - o.ang;
-        while(d >  Math.PI) d -= 6.283185;
-        while(d < -Math.PI) d += 6.283185;
-        o.turn += d * Math.min(1, dt*2.6);
+      // ---- neighbours: schooling, startle, and the gold escort ----
+      var sepX=0, sepY=0, aliX=0, aliY=0, cohX=0, cohY=0, nNb=0;
+      var flX=0, flY=0;
+      o.startle -= dt*1.6; if(o.startle < 0) o.startle = 0;
+      for(var n2=0;n2<kois.length;n2++){
+        if(n2 === k) continue;
+        var ot = kois[n2]; if(ot.x < 0) continue;
+        var ndx = ot.x - o.x, ndy = ot.y - o.y;
+        var nd2 = ndx*ndx + ndy*ndy;
+        if(nd2 > 260*260 || nd2 < 1) continue;
+        var nd = Math.sqrt(nd2);
+        // something bolts past -> scatter out of its way
+        if((ot.dartOn || ot.jumpOn) && nd < 230){
+          var push = (1 - nd/230);
+          flX -= ndx/nd * push; flY -= ndy/nd * push;
+          if(push > o.startle) o.startle = push;
+        }
+        if(nd < 95){ sepX -= ndx/nd*(1 - nd/95); sepY -= ndy/nd*(1 - nd/95); }
+        aliX += Math.cos(ot.ang); aliY += Math.sin(ot.ang);
+        cohX += ndx; cohY += ndy;
+        nNb++;
       }
 
-      // --- the cross-screen sprint ---
+      if(!o.dartOn && !o.jumpOn){
+        var vX = Math.cos(o.ang)*0.9, vY = Math.sin(o.ang)*0.9;
+        if(gm > 1e-6){
+          var gAng = Math.atan2(gy, gx);
+          var cAng = gAng + 1.5708;
+          if(Math.cos(cAng - o.ang) < 0) cAng -= 3.14159;
+          vX += Math.cos(gAng)*o.kFor*gs*0.85 + Math.cos(cAng)*o.kCon*gs*0.95;
+          vY += Math.sin(gAng)*o.kFor*gs*0.85 + Math.sin(cAng)*o.kCon*gs*0.95;
+        }
+        if(nNb){
+          var inv = 1/nNb;
+          vX += sepX*1.5 + aliX*inv*o.kSch*0.45 + (cohX*inv)/240*o.kSch*0.5;
+          vY += sepY*1.5 + aliY*inv*o.kSch*0.45 + (cohY*inv)/240*o.kSch*0.5;
+        }
+        if(goldFish && goldFish !== o){                 // escort the rare one
+          var edx = goldFish.x - o.x, edy = goldFish.y - o.y;
+          var ed = Math.sqrt(edx*edx + edy*edy);
+          if(ed > 110){ vX += edx/ed*1.25; vY += edy/ed*1.25; }
+        }
+        if(o.startle > 0.01){ vX += flX*3.2*o.startle; vY += flY*3.2*o.startle; }
+        // idle: settle into a ring rather than a heap
+        if(idle > 0.02){
+          var slot = (k/kois.length)*6.283185 + t*0.05;
+          var rr = Math.min(W,H)*0.22;
+          var tx = W*0.5 + Math.cos(slot)*rr, ty = H*0.5 + Math.sin(slot)*rr;
+          var idx2 = tx - o.x, idy2 = ty - o.y;
+          var idd = Math.sqrt(idx2*idx2 + idy2*idy2);
+          if(idd > 1){ vX += idx2/idd*2.4*idle; vY += idy2/idd*2.4*idle; }
+        }
+        var want = Math.atan2(vY, vX);
+        var dW = want - o.ang;
+        while(dW >  Math.PI) dW -= 6.283185;
+        while(dW < -Math.PI) dW += 6.283185;
+        o.turn += dW * Math.min(1, dt*2.6*(1 + 2*o.startle));
+      }
+
+      // ---- the sprint ----
       if(o.dartOn){
         o.dartT += dt;
         var tdx = o.dtx - o.x, tdy = o.dty - o.y;
         var tdist = Math.sqrt(tdx*tdx + tdy*tdy);
         if(tdist < 70 || o.dartT > 16){ o.dartOn = false; }
         else {
-          var rampIn  = o.dartT/0.6;  if(rampIn  > 1) rampIn  = 1;   // accelerate away
-          var rampOut = tdist/300;    if(rampOut > 1) rampOut = 1;   // ease off on arrival
+          var rampIn  = o.dartT/0.6;  if(rampIn  > 1) rampIn  = 1;
+          var rampOut = tdist/300;    if(rampOut > 1) rampOut = 1;
           o.dart = rampIn*rampOut;
-          // hold a straight line for the target instead of wandering the field
           var wantD = Math.atan2(tdy, tdx);
           var dD = wantD - o.ang;
           while(dD >  Math.PI) dD -= 6.283185;
           while(dD < -Math.PI) dD += 6.283185;
-          o.turn = o.turn*(1 - o.dart) + dD*2.8*o.dart;   // lock on and hold the line
+          o.turn = o.turn*(1 - o.dart) + dD*2.8*o.dart;
         }
       }
       if(!o.dartOn){ o.dart -= dt/0.5; if(o.dart < 0) o.dart = 0; }
 
-      // --- speed follows the slope: quick down steep gradients, idle on the flats ---
-      var tgt = 26 + 86*gs;
-      if(bHere > 0.78) tgt *= 0.55;                   // hovers once it reaches a bright peak
-      tgt *= (1 - 0.62*idle);                          // and slows right down when idle
-      if(o.dart > 0) tgt = tgt*(1 - o.dart) + (90 + 420*o.dart)*o.dart;   // sprint speed
-      o.sp += (tgt - o.sp) * Math.min(1, dt*(o.dart > 0 ? 3.2 : 1.1));
+      // ---- the jump: out of the water, and a splash on landing ----
+      if(o.jumpOn){
+        o.jumpT += dt;
+        var jp2 = o.jumpT/1.5;
+        if(jp2 >= 1){
+          o.jumpOn = false; o.jump = 0;   // lands
+        } else {
+          o.jump = Math.sin(jp2*Math.PI);                // arc up and back down
+          o.turn *= (1 - 0.85*o.jump);                   // sails straight
+        }
+      }
+      if(!o.jumpOn){ o.jump -= dt/0.4; if(o.jump < 0) o.jump = 0; }
 
-      // --- edges, and the gentle pull to centre while idle ---
+      var tgt = 26 + 86*gs;
+      if(bHere > 0.78) tgt *= 0.55;
+      tgt *= (1 - 0.62*idle);
+      if(o.startle > 0.01) tgt += 130*o.startle;
+      if(o.jump > 0)  tgt = tgt*(1 - o.jump) + 210*o.jump;
+      if(o.dart > 0)  tgt = tgt*(1 - o.dart) + (90 + 420*o.dart)*o.dart;
+      o.sp += (tgt - o.sp) * Math.min(1, dt*((o.dart > 0 || o.startle > 0.2) ? 3.2 : 1.1));
+
       var mx = W*0.12, my = H*0.12, sX = 0, sY = 0;
       if(o.x < mx) sX = (mx - o.x)/mx; else if(o.x > W-mx) sX = -(o.x - (W-mx))/mx;
       if(o.y < my) sY = (my - o.y)/my; else if(o.y > H-my) sY = -(o.y - (H-my))/my;
-      if(idle > 0.01){ sX += (W*0.5 - o.x)/W * idle*0.9; sY += (H*0.5 - o.y)/H * idle*0.9; }
       if(sX || sY){
         var wantE = Math.atan2(sY ? sY : Math.sin(o.ang), sX ? sX : Math.cos(o.ang));
         var dE = wantE - o.ang;
@@ -385,23 +471,17 @@
       if(o.x < -60) o.x = -60; else if(o.x > W+60) o.x = W+60;
       if(o.y < -60) o.y = -60; else if(o.y > H+60) o.y = H+60;
 
-      // --- depth ---
       var dep = Math.sin(t*o.sd + o.pd);
-      var Ls = o.L * (1 + 0.20*dep);
-      var ang = o.ang + Math.PI;                       // body axis: nose leads
+      var Ls = o.L * (1 + 0.20*dep) * (1 + 0.55*o.jump);   // leaps toward the viewer
+      var ang = o.ang + Math.PI;
       var curv = o.sp > 1 ? o.turn/o.sp : 0;
       var bend = -curv * Ls * 1.6;
       if(bend < -0.55) bend = -0.55; else if(bend > 0.55) bend = 0.55;
-      // tail beat follows speed. Cruising tops out around sn=1, but a bolting fish
-      // pushes past it (with diminishing returns) so its tail visibly thrashes.
       var sn = o.sp/88;
       if(sn > 1) sn = 1 + (sn - 1)*0.85;
       if(sn > 5) sn = 5;
-      var inc = dt * (1.1 + 6.2*sn) * o.sw;
-      // if(inc > 0.85) inc = 0.85;   // keep >7 frames per tail cycle so it never aliases
-      o.ph += inc;
+      o.ph += dt * (1.1 + 6.2*sn) * o.sw;
 
-      // --- stamp the wake behind it ---
       if(wake){
         var bx = (o.x - Math.cos(o.ang)*Ls*0.9)/cellW/2 | 0;
         var by = (o.y - Math.sin(o.ang)*Ls*0.9)/cellH/2 | 0;
@@ -413,16 +493,20 @@
       }
 
       var q = kst[k];
-      if(!q) q = kst[k] = {cx:0,cy:0,ca:0,sa:0,L:0,R2:0,swim:0,bend:0,dep:0,o:null};
+      if(!q) q = kst[k] = {cx:0,cy:0,ca:0,sa:0,L:0,R2:0,BR2:0,swim:0,bend:0,dep:0,near:0,o:null};
       var R = Ls*2.1;
       q.cx=o.x; q.cy=o.y; q.ca=Math.cos(ang); q.sa=Math.sin(ang);
-      q.L=Ls; q.R2=R*R; q.swim=o.ph; q.bend=bend; q.dep=dep; q.o=o;
+      q.L=Ls; q.R2=R*R; q.BR2=(Ls*3.1)*(Ls*3.1); q.swim=o.ph; q.bend=bend;
+      q.dep=dep; q.near = dep + o.jump*2.5; q.o=o;     // jumping fish are nearest of all
     }
-    // wake fades
+    // depth order: nearest first, so a near fish passes IN FRONT of a far one
+    korder.length = kst.length;
+    for(var z=0;z<kst.length;z++) korder[z] = z;
+    korder.sort(byNear);
+
     if(wake){ for(var w=0;w<wake.length;w++){ var v2 = wake[w]; if(v2 > 0.002) wake[w] = v2*0.955; else if(v2) wake[w] = 0; } }
   }
 
-  // returns 0 outside, 1 body, 0.55 fin
   function koiHit(s, dx, dy, inf){
     var u  = ( dx*s.ca + dy*s.sa) / s.L;
     var v  = (-dx*s.sa + dy*s.ca) / s.L;
@@ -462,7 +546,7 @@
     return (Math.sin(u*5.2 + 1.3)*Math.sin(v*8.0 + u*2.4) > 0.12);
   }
 
-  // ---- click: a koi appears and a ripple spreads ----
+  // ---- clicks ----
   var koiPalette = [
     {hue:26,  sat:92, lit:58, phue:6,   psat:88, plit:48},
     {hue:40,  sat:10, lit:86, phue:355, psat:85, plit:56},
@@ -471,12 +555,10 @@
     {hue:200, sat:55, lit:62, phue:215, psat:60, plit:36},
     {hue:52,  sat:70, lit:72, phue:20,  psat:80, plit:50}
   ];
-  var MAX_KOI = 35;
-  // 1 in 100: the rare one. Pure gold, bigger, and it glows instead of casting a shadow.
-  var GOLD = {hue:45, sat:100, lit:80, phue:52, psat:100, plit:94};
+  var MAX_KOI = 14;
   function addKoi(fx, fy){
     if(kois.length >= MAX_KOI) kois.shift();
-    var gold = Math.random() < 0.05;
+    var gold = goldAll || Math.random() < 0.01;
     var c = gold ? GOLD : koiPalette[(Math.random()*koiPalette.length)|0];
     var o = mkKoi(c, gold ? krnd(62, 76) : krnd(34, 58));
     o.gold = gold;
@@ -487,15 +569,55 @@
   document.addEventListener('click', function(e){
     poke();
     if(e.target.closest && e.target.closest('main')) return;
-    if(ripples.length < 5) ripples.push({i:e.clientX/cellW, j:e.clientY/cellH, t0:kNow});
     addKoi(e.clientX/window.innerWidth, e.clientY/window.innerHeight);
+  });
+
+  // ---- publications: the colour turns over, and so does the page ----
+  var homeView = document.getElementById('home');
+  var pubView  = document.getElementById('pubpage');
+  var swapping = false;
+  function swapView(from, to, toPubs){
+    if(swapping || !from || !to) return;
+    swapping = true;
+    grayTo = toPubs ? 1 : 0;                      // grey sweeps across, or colour does
+    grayX = -70;                                  // starts just off the left edge
+    grayEnd = W + 70;
+    graySpeed = (W + 140)/0.30;                   // same crossing time on any screen
+    graySweep = true;
+    from.classList.remove('entering');
+    from.classList.add('leaving');
+    setTimeout(function(){
+      from.setAttribute('hidden','');
+      from.classList.remove('leaving');
+      to.removeAttribute('hidden');
+      to.classList.add('entering');
+      setTimeout(function(){ to.classList.remove('entering'); swapping = false; }, 260);
+    }, 240);   // snap turn
+  }
+  var pubBtn  = document.getElementById('pubtoggle');
+  var backBtn = document.getElementById('pubback');
+  if(pubBtn)  pubBtn.addEventListener('click',  function(e){ e.stopPropagation(); poke(); swapView(homeView, pubView, true); });
+  if(backBtn) backBtn.addEventListener('click', function(e){ e.stopPropagation(); poke(); swapView(pubView, homeView, false); });
+
+  // ---- konami: the whole pond turns to gold ----
+  var KON = [38,38,40,40,37,39,37,39,66,65], konI = 0;
+  window.addEventListener('keydown', function(e){
+    konI = (e.keyCode === KON[konI]) ? konI+1 : (e.keyCode === KON[0] ? 1 : 0);
+    if(konI === KON.length){
+      konI = 0; goldAll = true;
+      for(var k2=0;k2<kois.length;k2++){
+        var o2 = kois[k2];
+        o2.gold = true; o2.hue=GOLD.hue; o2.sat=GOLD.sat; o2.lit=GOLD.lit;
+        o2.phue=GOLD.phue; o2.psat=GOLD.psat; o2.plit=GOLD.plit;
+      }
+    }
   });
 
   function draw(t){
     koiState(t);
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, W, H);
-    var nk = kst.length, hasRip = ripples.length > 0;
+    var nk = korder.length;
     for(var j=0;j<rows;j++){
       var y = j * cellH;
       var runKey = -1, runStr = '', runX = 0, runCol = '';
@@ -503,50 +625,59 @@
       var wyBase = j*0.068;
       var wRow = (j>>1)*wCols;
       for(var i=0;i<cols;i++){
+        var px = i*cellW;
         var wx = i*0.060 + sinJ1;
         var wy = wyBase + 1.4*Math.sin(i*0.048 - t*0.30) + 0.55*Math.sin(i*0.125 + t*0.52);
         var f = Math.sin(wx + t*0.50) + Math.sin(wy - t*0.40) + Math.sin((wx + wy)*0.6 + t*0.22);
         var b = 0.5 + f/6;
-        if(hasRip) b += rippleTerm(i, j, t);
+
+        // ---- fish: nearest first, plus the bow wave they push ----
+        var hit = 0, ko = null, ks = null, bow = 0;
+        for(var kk=0;kk<nk;kk++){
+          var st = kst[korder[kk]];
+          var ddx = px - st.cx, ddy = y - st.cy;
+          var dd2 = ddx*ddx + ddy*ddy;
+          if(dd2 > st.BR2) continue;
+          if(!hit){
+            var uu2 = (ddx*st.ca + ddy*st.sa)/st.L;
+            var fall = 1 - Math.sqrt(dd2)/(st.L*3.1);
+            bow += (uu2 < 0 ? 0.20 : -0.13) * fall * fall;   // piles up at the nose
+          }
+          if(dd2 > st.R2) continue;
+          if(hit) continue;
+          var h = koiHit(st, ddx, ddy, 0);
+          if(h){ hit = h; ks = st; ko = st.o; continue; }
+          if(koiHit(st, ddx, ddy, st.o.gold ? 0.12 : 0.055)){ hit = 0.2; ks = st; ko = st.o; }
+        }
+        b += bow;
         if(b < 0) b = 0; else if(b > 1) b = 1;
+
         var cf = Math.sin(wx*0.5 - t*0.18) + Math.sin(wy*0.5 + t*0.15);
         var hue = (((cf*90 + t*18) % 360) + 360) % 360;
         hue = (hue / 6 | 0) * 6;
-        // caustics: sharp bright ridges, like sun on a pond floor
         var ca = Math.sin(wx*1.7 + t*0.40) * Math.sin(wy*1.30 - t*0.33);
         if(ca < 0) ca = -ca;
         ca = ca*ca*ca*ca;
         var lightF = fldBase + b*fldSpan + ca*13;
-        var wv = wake ? wake[wRow + (i>>1)] : 0;        // wake trail
+        var wv = wake ? wake[wRow + (i>>1)] : 0;
         if(wv > 0) lightF += wv*20;
 
-        var px = i*cellW, hit = 0, ko = null, ks = null;
-        for(var k=0;k<nk;k++){
-          var st = kst[k];
-          var ddx = px - st.cx, ddy = y - st.cy;
-          if(ddx*ddx + ddy*ddy > st.R2) continue;
-          var h = koiHit(st, ddx, ddy, 0);
-          if(h){ hit = h; ks = st; ko = st.o; break; }
-          if(koiHit(st, ddx, ddy, st.o.gold ? 0.12 : 0.055)){ hit = 0.2; ks = st; ko = st.o; break; }
-        }
         var kh, ksa, kl, chr;
         if(!hit){
           kh = hue; ksa = fldSat; kl = lightF;
           chr = ramp.charAt((b*RL + 0.5) | 0);
         } else {
-          var far = ks.dep < 0 ? -ks.dep : 0;           // 0 near .. 1 far
+          var far = ks.dep < 0 ? -ks.dep : 0;
           if(hit === 0.2){
-            if(ko.gold){ kh = 44; ksa = 95; kl = 34; }   // gold glow
-            else       { kh = 0;  ksa = 0;  kl = 7;  }   // ordinary dark halo
+            if(ko.gold){ kh = 44; ksa = 95; kl = 34; }
+            else       { kh = 0;  ksa = 0;  kl = 7;  }
             chr = ramp.charAt((b*RL + 0.5) | 0);
           } else {
-            // each koi keeps its own fixed colour, whatever the water is doing
             var patch = (hit === 1) && koiPatch(ks, px - ks.cx, y - ks.cy);
             kh  = patch ? ko.phue : ko.hue;
             ksa = patch ? ko.psat : ko.sat;
             kl  = patch ? ko.plit : ko.lit;
-            if(hit < 1) kl -= 8;                        // fins a touch deeper
-            // depth still shows in the CHARACTERS: sparser ramp when further away
+            if(hit < 1) kl -= 8;
             chr = (hit === 1)
                 ? ((far > 0.45 && !ko.gold) ? koiBodyF.charAt((b*KBFL + 0.5)|0)
                                             : koiBody.charAt((b*KBL + 0.5)|0))
@@ -554,16 +685,27 @@
           }
           if(kl < 6) kl = 6; else if(kl > 95) kl = 95;
         }
+
+        // ---- grey, or colour, sweeping across from the left ----
+        var gAmt = grayBase;
+        if(graySweep){
+          var e = (grayX - px)/56;                     // soft edge on the front
+          if(e > 1) e = 1; else if(e < 0) e = 0;
+          gAmt = grayBase + (grayTo - grayBase)*e;
+          if(e > 0.02 && e < 0.98) kl += (1 - Math.abs(e - 0.5)*2)*26;   // the front glints
+        }
+        if(gAmt > 0.004) ksa = ksa*(1 - gAmt);
+
         kl = (kl/4 | 0) * 4;
-        if(ksa > 100) ksa = 100;
+        if(ksa > 100) ksa = 100; else if(ksa < 0) ksa = 0;
         ksa = (ksa/5 | 0) * 5;
         kh = kh | 0;
-        var key = ((kh*101) + (ksa|0))*101 + kl;
+        var key = ((kh*101) + ksa)*101 + kl;
         if(key === runKey){
           runStr += chr;
         } else {
           if(runStr){ ctx.fillStyle = runCol; ctx.fillText(runStr, runX, y); }
-          runKey = key; runCol = colStr(key, kh, ksa|0, kl);
+          runKey = key; runCol = colStr(key, kh, ksa, kl);
           runStr = chr; runX = px;
         }
       }
